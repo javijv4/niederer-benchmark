@@ -1,0 +1,20 @@
+schema = 1
+name = "Niederer electrophysiology benchmark (tetrahedra, h = 0.5 mm, dt = 0.05 ms)"
+reference_source = "P8 activation times from the Sherlock svMultiPhysics study."
+
+[preprocess.generate_mesh]
+argv = ["python", "../../scripts/generate_mesh.py", "--case", "slab_h0.5_dt0.05"]
+
+[solver.solve]
+input = "solver.xml"
+
+[postprocess.extract_activation]
+argv = ["python", "../../scripts/benchmark.py", "extract", "slab_h0.5_dt0.05"]
+
+[evaluation.p8_ms]
+argv = ["python", "../../scripts/benchmark.py", "evaluate", "slab_h0.5_dt0.05", "p8_ms"]
+reference = 40.452819564
+atol = 0.10
+
+[cleanup.remove_snapshots]
+argv = ["python", "../../scripts/benchmark.py", "cleanup", "slab_h0.5_dt0.05"]

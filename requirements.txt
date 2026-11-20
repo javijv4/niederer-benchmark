@@ -1,0 +1,6 @@
+numpy
+matplotlib
+vtk
+gmsh==4.15.2
+pygmsh==7.1.17
+svbenchmark @ git+https://github.com/alexander02468/svMultiPhysics.git@1cc0ab283e6ce121e45fe9b0a071828b27428f79#subdirectory=benchmarks/svbenchmark

@@ -1,0 +1,107 @@
+#!/usr/bin/env python3
+"""Run the Niederer discretization benchmarks through svbenchmark."""
+
+import argparse
+import json
+import os
+from pathlib import Path
+import re
+import shutil
+import subprocess
+import sys
+
+import svbenchmark
+from svbenchmark.manifest import BenchmarkRunResult
+
+
+def solver_build(executable):
+    try:
+        result = subprocess.run(
+            [str(executable), "--version"], capture_output=True, text=True, timeout=10
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if result.returncode == 0:
+        match = re.search(
+            r"^\[svMultiPhysics\] version (?P<version>\S+) tag (?P<tag>\S+) "
+            r"commit (?P<commit>\S+)",
+            result.stdout,
+            re.MULTILINE,
+        )
+        if match:
+            return match.groupdict()
+    return None
+
+
+def main():
+    root = Path(__file__).resolve().parent
+    benchmarks = {
+        mesh: [
+            svbenchmark.load_benchmark(
+                root / "cases" / f"slab_h{mesh}_dt{dt}" / "benchmark.toml"
+            )
+            for dt in ("0.05", "0.01", "0.005")
+        ]
+        for mesh in ("0.5", "0.2", "0.1")
+    }
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--solver", default=os.environ.get("SVMP_EXECUTABLE", "svmultiphysics"))
+    parser.add_argument("--ranks", type=int, default=1)
+    parser.add_argument("--figures", action="store_true", help="generate PDFs after running the cases")
+    selection = parser.add_mutually_exclusive_group()
+    selection.add_argument("--mesh", choices=benchmarks, help="run all three time steps for this mesh")
+    selection.add_argument(
+        "--case", action="append",
+        choices=[benchmark.base_directory.name for group in benchmarks.values() for benchmark in group],
+        help="run a specific mesh and time-step combination (repeatable)",
+    )
+    args = parser.parse_args()
+    if args.ranks < 1:
+        parser.error("--ranks must be positive")
+    solver_path = shutil.which(str(Path(args.solver).expanduser()))
+    if solver_path is None:
+        parser.error(f"cannot find an executable solver at {args.solver}")
+
+    solver_executable = Path(solver_path).resolve()
+    os.environ["NIEDERER_SOLVER_BUILD"] = json.dumps(solver_build(solver_executable))
+    context = svbenchmark.SolveExecutionContext(
+        solver_executable=solver_executable,
+        mpi_ranks=args.ranks,
+    )
+    phases = ("preprocess", "solver", "postprocess", "evaluation", "cleanup")
+    results = {phase: {} for phase in phases}
+    groups = (benchmarks[args.mesh],) if args.mesh else benchmarks.values()
+    for benchmark in (benchmark for group in groups for benchmark in group):
+        case_name = benchmark.base_directory.name
+        if args.case and case_name not in args.case:
+            continue
+        print(f"Running {case_name}", flush=True)
+        result = svbenchmark.run_benchmark(benchmark, context)
+        for phase in phases:
+            results[phase].update(
+                (f"{case_name}_{step}", item)
+                for step, item in getattr(result, phase).items()
+            )
+        combined = BenchmarkRunResult(
+            name="Niederer ventricular electrophysiology benchmark (tetrahedral slab)",
+            base_directory=root,
+            **results,
+        )
+        svbenchmark.write_benchmark_json(combined, root / "results.json")
+        for name, item in result.evaluation.items():
+            print(f"{case_name}_{name}: {item.value:.6f} ms ({item.status})", flush=True)
+
+    if args.figures:
+        subprocess.run([sys.executable, str(root / "scripts" / "generate_figures.py")],
+                       cwd=root, check=True)
+    return int(any(item.status != "pass" for item in results["evaluation"].values()))
+
+
+if __name__ == "__main__":
+    try:
+        sys.exit(main())
+    except subprocess.CalledProcessError as error:
+        print(error, file=sys.stderr)
+        for note in getattr(error, "__notes__", ()):
+            print(note, file=sys.stderr)
+        sys.exit(1)

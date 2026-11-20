@@ -1,0 +1,7 @@
+.venv/
+__pycache__/
+/cases/*/results/
+/cases/*/mesh/
+/cases/*/.mesh-*/
+/results.json
+/figures/
