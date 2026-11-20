@@ -57,3 +57,20 @@ and activation extraction add a few minutes per mesh.
 | `slab_h0.1_dt0.005` | 55 |
 
 All nine cases take about 140 core hours. The finest mesh dominates.
+
+## Results
+
+Activation time along the diagonal from P1 `(0, 0, 0)` mm to P8 `(20, 7, 3)` mm,
+for the 0.005 ms time step. The shaded band is the published 37.8–48.7 ms interval.
+
+![Activation time along the P1–P8 diagonal](figures/benchmark_line.png)
+
+P8 activation time for each mesh size and time step.
+
+![P8 activation time across the case matrix](figures/benchmark_surface.png)
+
+Isochrones on the plane through P1 and P8, for the 0.005 ms time step.
+
+![Isochrones for the 0.5 mm mesh](figures/benchmark_slice_dx0.5.png)
+
+![Isochrones for the 0.1 mm mesh](figures/benchmark_slice_dx0.1.png)

@@ -4,4 +4,3 @@ __pycache__/
 /cases/*/mesh/
 /cases/*/.mesh-*/
 /results.json
-/figures/
